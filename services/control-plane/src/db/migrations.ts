@@ -6,9 +6,21 @@ import type { Pool, PoolClient } from "pg";
 
 type DbLike = Pool | PoolClient;
 
-function getMigrationsDir(): string {
+async function getMigrationsDir(): Promise<string> {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(currentDir, "../../migrations");
+  const candidates = [
+    path.resolve(currentDir, "../../migrations"),
+    path.resolve(currentDir, "../../../migrations")
+  ];
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      // try next candidate
+    }
+  }
+  return candidates[0]!;
 }
 
 export async function runMigrations(db: DbLike): Promise<void> {
@@ -28,7 +40,7 @@ export async function runMigrations(db: DbLike): Promise<void> {
     `);
   }
 
-  const migrationsDir = getMigrationsDir();
+  const migrationsDir = await getMigrationsDir();
   const entries = await fs.readdir(migrationsDir);
   const sqlFiles = entries.filter((entry) => entry.endsWith(".sql")).sort();
 
