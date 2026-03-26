@@ -386,20 +386,20 @@ describe("control plane state machine", () => {
 describe("mcp tool surface", () => {
   test("exposes approval tools only to supervisor", () => {
     expect(listToolNamesForRole("supervisor")).toEqual([
-      "request_handoff",
-      "get_handoff_status",
-      "list_pending_approvals",
-      "approve_handoff",
-      "reject_handoff",
-      "cancel_handoff"
+      "supervisor_request_handoff",
+      "supervisor_get_handoff_status",
+      "supervisor_list_pending_approvals",
+      "supervisor_approve_handoff",
+      "supervisor_reject_handoff",
+      "supervisor_cancel_handoff"
     ]);
     expect(listToolNamesForRole("researcher")).toEqual([
-      "request_handoff",
-      "get_handoff_status"
+      "researcher_request_handoff",
+      "researcher_get_handoff_status"
     ]);
     expect(listToolNamesForRole("builder")).toEqual([
-      "request_handoff",
-      "get_handoff_status"
+      "builder_request_handoff",
+      "builder_get_handoff_status"
     ]);
   });
 });

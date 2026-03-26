@@ -43,3 +43,14 @@ This package implements the V1 approval-gated control plane for the multi-agent 
 - Use `ops/control-plane.env.example` as the env template for Raspberry Pi.
 - Use `ops/openclaw-control-plane.service` as the user-level systemd unit.
 - Use `ops/openclaw-control-plane-openclaw-snippet.md` to wire the MCP bridge into OpenClaw.
+- MCP tools are role-prefixed to avoid global tool-name collisions inside one OpenClaw gateway:
+  - `supervisor_request_handoff`
+  - `supervisor_get_handoff_status`
+  - `supervisor_list_pending_approvals`
+  - `supervisor_approve_handoff`
+  - `supervisor_reject_handoff`
+  - `supervisor_cancel_handoff`
+  - `researcher_request_handoff`
+  - `researcher_get_handoff_status`
+  - `builder_request_handoff`
+  - `builder_get_handoff_status`

@@ -40,14 +40,17 @@ const cancelSchema = z.object({
 });
 
 export function listToolNamesForRole(role: AgentName): string[] {
-  const requesterTools = ["request_handoff", "get_handoff_status"];
+  const requesterTools = [
+    `${role}_request_handoff`,
+    `${role}_get_handoff_status`
+  ];
   if (role === "supervisor") {
     return [
       ...requesterTools,
-      "list_pending_approvals",
-      "approve_handoff",
-      "reject_handoff",
-      "cancel_handoff"
+      "supervisor_list_pending_approvals",
+      "supervisor_approve_handoff",
+      "supervisor_reject_handoff",
+      "supervisor_cancel_handoff"
     ];
   }
   return requesterTools;
@@ -58,9 +61,13 @@ export function createMcpServer(role: AgentName, client: ControlPlaneHttpClient)
     name: `claw-control-plane-${role}`,
     version: "0.1.0"
   });
+  const requesterToolNames = {
+    request: `${role}_request_handoff`,
+    status: `${role}_get_handoff_status`
+  } as const;
 
   server.registerTool(
-    "request_handoff",
+    requesterToolNames.request,
     {
       title: "Request Handoff",
       description: "Request an approval-gated handoff to another specialist agent.",
@@ -98,7 +105,7 @@ export function createMcpServer(role: AgentName, client: ControlPlaneHttpClient)
   );
 
   server.registerTool(
-    "get_handoff_status",
+    requesterToolNames.status,
     {
       title: "Get Handoff Status",
       description: "Fetch the full status of a previously created handoff request.",
@@ -120,7 +127,7 @@ export function createMcpServer(role: AgentName, client: ControlPlaneHttpClient)
 
   if (role === "supervisor") {
     server.registerTool(
-      "list_pending_approvals",
+      "supervisor_list_pending_approvals",
       {
         title: "List Pending Approvals",
         description: "List all handoffs waiting for supervisor approval.",
@@ -149,7 +156,7 @@ export function createMcpServer(role: AgentName, client: ControlPlaneHttpClient)
     );
 
     server.registerTool(
-      "approve_handoff",
+      "supervisor_approve_handoff",
       {
         title: "Approve Handoff",
         description: "Approve a pending handoff request.",
@@ -173,7 +180,7 @@ export function createMcpServer(role: AgentName, client: ControlPlaneHttpClient)
     );
 
     server.registerTool(
-      "reject_handoff",
+      "supervisor_reject_handoff",
       {
         title: "Reject Handoff",
         description: "Reject a pending handoff request.",
@@ -197,7 +204,7 @@ export function createMcpServer(role: AgentName, client: ControlPlaneHttpClient)
     );
 
     server.registerTool(
-      "cancel_handoff",
+      "supervisor_cancel_handoff",
       {
         title: "Cancel Handoff",
         description:

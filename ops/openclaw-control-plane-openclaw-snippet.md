@@ -46,6 +46,22 @@ Use one stdio MCP process per role so each agent only sees the intended tool set
 
 `researcher` and `builder` should get requester tools only.
 
+Recommended per-agent allow additions:
+
+- `main` / supervisor:
+  - `supervisor_request_handoff`
+  - `supervisor_get_handoff_status`
+  - `supervisor_list_pending_approvals`
+  - `supervisor_approve_handoff`
+  - `supervisor_reject_handoff`
+  - `supervisor_cancel_handoff`
+- `researcher`:
+  - `researcher_request_handoff`
+  - `researcher_get_handoff_status`
+- `builder`:
+  - `builder_request_handoff`
+  - `builder_get_handoff_status`
+
 ## 3. Explicitly deny direct peer delegation
 
 Keep these tools disabled or removed from all three production agents:
