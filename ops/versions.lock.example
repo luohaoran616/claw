@@ -1,0 +1,10 @@
+﻿# Copy to ops/versions.lock and set immutable release targets.
+OPENCLAW_REPO=https://github.com/luohaoran616/openclaw.git
+QMD_REPO=https://github.com/luohaoran616/qmd.git
+
+# Use full commit SHA for reproducible deployments.
+OPENCLAW_COMMIT=4ed6a2c95c
+QMD_COMMIT=3f7b276
+
+# Optional: workspace/prompt/ruleset version tag.
+RULES_VERSION=v1

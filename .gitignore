@@ -1,0 +1,7 @@
+node_modules/
+services/control-plane/node_modules/
+services/control-plane/dist/
+.pnpm-store/
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,15 @@
+[Unit]
+Description=OpenClaw Control Plane
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/home/luo/.openclaw/control-plane.env
+WorkingDirectory=/home/luo/apps/claw
+ExecStart=/usr/bin/node /home/luo/apps/claw/services/control-plane/dist/src/cli-http.js
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
