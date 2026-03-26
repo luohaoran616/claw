@@ -7,6 +7,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import { ArtifactWriter } from "../src/artifacts/store.js";
 import type { ControlPlaneConfig } from "../src/config.js";
+import { loadMcpClientConfig } from "../src/config.js";
 import { runMigrations } from "../src/db/migrations.js";
 import { ControlPlaneStore } from "../src/db/store.js";
 import { createHttpApp } from "../src/http/app.js";
@@ -140,6 +141,20 @@ async function waitForStatus(
 }
 
 describe("control plane api validation", () => {
+  test("loads MCP client config without requiring database settings", () => {
+    const config = loadMcpClientConfig({
+      CONTROL_PLANE_TOKEN: "test-token",
+      CONTROL_PLANE_BASE_URL: "http://127.0.0.1:18890",
+      CONTROL_PLANE_MCP_ROLE: "supervisor"
+    });
+
+    expect(config).toEqual({
+      token: "test-token",
+      baseUrl: "http://127.0.0.1:18890",
+      mcpRole: "supervisor"
+    });
+  });
+
   test("rejects invalid builder handoffs and invalid approval transitions", async () => {
     const { app } = await createTestContext(
       new FakeExecutor(() => ({

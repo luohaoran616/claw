@@ -1,13 +1,9 @@
-import { loadConfig } from "./config.js";
+import { loadMcpClientConfig } from "./config.js";
 import { ControlPlaneHttpClient } from "./mcp/client.js";
 import { startMcpServer } from "./mcp/server.js";
 
 async function main() {
-  const config = loadConfig();
-  if (!config.mcpRole) {
-    throw new Error("CONTROL_PLANE_MCP_ROLE must be set to supervisor, researcher, or builder");
-  }
-
+  const config = loadMcpClientConfig();
   const client = new ControlPlaneHttpClient(config.baseUrl, config.token);
   await startMcpServer(config.mcpRole, client);
   console.error(JSON.stringify({ event: "control-plane-mcp-started", role: config.mcpRole }));

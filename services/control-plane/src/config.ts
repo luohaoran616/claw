@@ -3,10 +3,15 @@ import { z } from "zod";
 
 import { agentNameSchema, AgentName } from "./types.js";
 
-const configSchema = z.object({
+const sharedConfigSchema = z.object({
+  CONTROL_PLANE_TOKEN: z.string().min(1),
+  CONTROL_PLANE_BASE_URL: z.string().min(1).default("http://127.0.0.1:18890"),
+  CONTROL_PLANE_MCP_ROLE: agentNameSchema.optional()
+});
+
+const httpConfigSchema = sharedConfigSchema.extend({
   CONTROL_PLANE_PORT: z.coerce.number().int().positive().default(18890),
   CONTROL_PLANE_HOST: z.string().min(1).default("127.0.0.1"),
-  CONTROL_PLANE_TOKEN: z.string().min(1),
   CONTROL_PLANE_DATABASE_URL: z.string().min(1),
   CONTROL_PLANE_ARTIFACT_ROOT: z
     .string()
@@ -20,9 +25,7 @@ const configSchema = z.object({
   CONTROL_PLANE_MAX_CONCURRENT_RUNS: z.coerce.number().int().positive().default(2),
   CONTROL_PLANE_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
   CONTROL_PLANE_APPROVAL_WINDOW_SEC: z.coerce.number().int().positive().default(1800),
-  CONTROL_PLANE_DISPATCH_GRACE_SEC: z.coerce.number().int().positive().default(30),
-  CONTROL_PLANE_BASE_URL: z.string().min(1).default("http://127.0.0.1:18890"),
-  CONTROL_PLANE_MCP_ROLE: agentNameSchema.optional()
+  CONTROL_PLANE_DISPATCH_GRACE_SEC: z.coerce.number().int().positive().default(30)
 });
 
 export interface ControlPlaneConfig {
@@ -41,8 +44,14 @@ export interface ControlPlaneConfig {
   mcpRole: AgentName | null;
 }
 
+export interface ControlPlaneMcpClientConfig {
+  token: string;
+  baseUrl: string;
+  mcpRole: AgentName;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneConfig {
-  const parsed = configSchema.parse(env);
+  const parsed = httpConfigSchema.parse(env);
   return {
     host: parsed.CONTROL_PLANE_HOST,
     port: parsed.CONTROL_PLANE_PORT,
@@ -57,5 +66,20 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ControlPlaneCo
     dispatchGraceSec: parsed.CONTROL_PLANE_DISPATCH_GRACE_SEC,
     baseUrl: parsed.CONTROL_PLANE_BASE_URL,
     mcpRole: parsed.CONTROL_PLANE_MCP_ROLE ?? null
+  };
+}
+
+export function loadMcpClientConfig(
+  env: NodeJS.ProcessEnv = process.env
+): ControlPlaneMcpClientConfig {
+  const parsed = sharedConfigSchema.parse(env);
+  if (!parsed.CONTROL_PLANE_MCP_ROLE) {
+    throw new Error("CONTROL_PLANE_MCP_ROLE must be set to supervisor, researcher, or builder");
+  }
+
+  return {
+    token: parsed.CONTROL_PLANE_TOKEN,
+    baseUrl: parsed.CONTROL_PLANE_BASE_URL,
+    mcpRole: parsed.CONTROL_PLANE_MCP_ROLE
   };
 }
