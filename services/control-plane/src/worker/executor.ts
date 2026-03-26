@@ -31,7 +31,12 @@ export class OpenClawCliExecutor implements DispatchExecutor {
       command[0]!,
       command.slice(1),
       {
-      stdio: ["ignore", "pipe", "pipe"]
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          OPENCLAW_LOG_LEVEL: "error",
+          NO_COLOR: "1"
+        }
       }
     );
 
