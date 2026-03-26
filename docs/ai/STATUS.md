@@ -612,3 +612,77 @@ Note: this is a break-glass LAN HTTP setup. For hardened production, migrate to 
   - control plane is implemented locally in this repo
   - not yet deployed to Raspberry Pi
   - Raspberry Pi OpenClaw config is not yet wired to the new MCP server in this turn
+
+## 2026-03-27 Raspberry Pi Control Plane Deployment Completed
+
+- Git / repo:
+  - initialized this repo as git and pushed to:
+    - `https://github.com/luohaoran616/claw.git`
+  - `docs/` is now inside version control together with the new service code
+  - local repo latest deployment-related commits now include:
+    - `24264ca` `Initial claw control plane implementation`
+    - `dfaec71` `Avoid MCP tool name collisions across roles`
+    - `67e8d45` `Fix runtime migration path resolution`
+    - `9e5c7aa` `Fix MCP client config requirements`
+    - `be3647d` `Quiet control plane dispatch runs`
+- Raspberry Pi deployment target:
+  - host: `luo@192.168.0.142`
+  - app root:
+    - `/home/luo/apps/claw`
+  - OpenClaw root:
+    - `/home/luo/apps/openclaw`
+  - control plane env:
+    - `/home/luo/.openclaw/control-plane.env`
+  - control plane artifacts:
+    - `/home/luo/.local/share/openclaw-control-plane/artifacts`
+- Raspberry Pi control plane runtime is live:
+  - installed native `postgresql`
+  - created local DB + role for control plane
+  - deployed user service:
+    - `openclaw-control-plane.service`
+  - verified health:
+    - `GET http://127.0.0.1:18890/healthz -> {"ok":true}`
+- OpenClaw integration is live on the Raspberry Pi:
+  - global `mcp.servers` approach was removed because OpenClaw currently exposes configured MCP tools too broadly across agents
+  - final live wiring uses per-workspace bundle MCP plugins instead:
+    - supervisor workspace:
+      - `/home/luo/.openclaw/workspace/.openclaw/extensions/control-plane-supervisor/.mcp.json`
+    - researcher workspace:
+      - `/home/luo/.openclaw/workspace-researcher/.openclaw/extensions/control-plane-researcher/.mcp.json`
+    - builder workspace:
+      - `/home/luo/.openclaw/workspace-builder/.openclaw/extensions/control-plane-builder/.mcp.json`
+  - added stub manifests for the other control-plane plugin ids in each workspace so OpenClaw config validation no longer fails on missing plugin ids
+- Live tool separation verified on the Raspberry Pi:
+  - `main` / supervisor session exposes only:
+    - `supervisor_request_handoff`
+    - `supervisor_get_handoff_status`
+    - `supervisor_list_pending_approvals`
+    - `supervisor_approve_handoff`
+    - `supervisor_reject_handoff`
+    - `supervisor_cancel_handoff`
+  - `researcher` session exposes only:
+    - `researcher_request_handoff`
+    - `researcher_get_handoff_status`
+  - `builder` session exposes only:
+    - `builder_request_handoff`
+    - `builder_get_handoff_status`
+  - `builder` direct delegation via `sessions_spawn` remains unavailable in-session
+  - `researcher` can no longer call supervisor approval tools in-session
+- Live end-to-end smoke passed on the Raspberry Pi:
+  - created approval-gated handoff:
+    - `hr_01KMP5588WRG4BVNDJBVQJZM3T`
+  - approved it
+  - dispatch worker executed researcher agent locally
+  - handoff reached `completed`
+  - supervisor-side MCP readback also returned `completed`
+  - after the executor log-noise fix, a second smoke handoff returned clean summary text:
+    - `CONTROL_PLANE_CLEAN`
+- Current live OpenClaw production posture on Raspberry Pi:
+  - single gateway still handles Feishu ingress
+  - group policy remains enabled with mention gating / current sender restrictions from earlier setup
+  - `sessions_send` / `sessions_spawn` / `sessions_yield` / `subagents` are still denied for the specialist agents
+  - approval flow is now available through supervisor MCP tools
+- Important operational caveat:
+  - the Raspberry Pi working copy at `/home/luo/apps/claw` is functional but may not be git-clean, because several deployment fixes were hot-uploaded after `git pull` was blocked by an existing local modification to:
+    - `services/control-plane/src/db/migrations.ts`
+  - if we want a perfectly clean deploy tree later, reconcile `/home/luo/apps/claw` with `origin/main` in a dedicated cleanup pass instead of using the current hotfix-in-place state
