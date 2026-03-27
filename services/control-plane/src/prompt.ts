@@ -36,6 +36,7 @@ export function buildDispatchPrompt(handoff: HandoffRequestRecord): string {
     sourceChannel,
     "",
     "Execution rules:",
+    "0. Treat the handoff summary and delegation reason as the approved execution contract from the supervisor/control plane.",
     "1. Stay strictly inside the declared write scope and tool expectations.",
     "2. Stop and explain why if the task would exceed the declared scope or budget.",
     "3. Prefer the smallest change set that satisfies the request.",

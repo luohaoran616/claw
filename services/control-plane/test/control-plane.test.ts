@@ -11,7 +11,11 @@ import { loadMcpClientConfig } from "../src/config.js";
 import { runMigrations } from "../src/db/migrations.js";
 import { ControlPlaneStore } from "../src/db/store.js";
 import { createHttpApp } from "../src/http/app.js";
-import { listToolNamesForRole } from "../src/mcp/server.js";
+import {
+  getHandoffStatusToolDescription,
+  getRequestHandoffToolDescription,
+  listToolNamesForRole
+} from "../src/mcp/server.js";
 import type { DispatchExecutionHandle, DispatchExecutor, TaskExecutionResult } from "../src/types.js";
 import { DispatchWorker } from "../src/worker/dispatch-worker.js";
 
@@ -416,5 +420,25 @@ describe("mcp tool surface", () => {
       "builder_request_handoff",
       "builder_get_handoff_status"
     ]);
+  });
+
+  test("describes supervisor handoffs as specialist-first execution", () => {
+    const description = getRequestHandoffToolDescription("supervisor");
+    expect(description).toContain("redundant yes/no permission question");
+    expect(description).toContain("pending-approval checkpoint");
+    expect(description).toContain("file changes");
+    expect(description).toContain("read-only synthesis");
+    expect(description).toContain("bounded write scope");
+  });
+
+  test("describes specialist handoffs as boundary-based escalation", () => {
+    const description = getRequestHandoffToolDescription("researcher");
+    expect(description).toContain("exceeds your tool boundary");
+    expect(description).toContain("rollback hint");
+  });
+
+  test("describes status checks as follow-up instead of re-requesting work", () => {
+    expect(getHandoffStatusToolDescription("supervisor")).toContain("instead of resubmitting");
+    expect(getHandoffStatusToolDescription("builder")).toContain("instead of guessing");
   });
 });

@@ -11,6 +11,7 @@ This folder is the GitOps control plane for multi-host OpenClaw deployment.
 - `control-plane.env.example`: environment template for the V1 control-plane service
 - `openclaw-control-plane.service`: user-level systemd unit for Raspberry Pi deployment
 - `openclaw-control-plane-openclaw-snippet.md`: OpenClaw MCP wiring guidance for `supervisor`, `researcher`, and `builder`
+- `supervisor-first-orchestration-prompt.md`: prompt-pack snippet for a verification-capable `supervisor`
 
 ## Suggested next files (create when implementing Ansible)
 

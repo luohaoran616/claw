@@ -42,7 +42,7 @@ Use one stdio MCP process per role so each agent only sees the intended tool set
 
 ## 2. Attach tools to agents
 
-`supervisor` should get request + approval tools.
+`supervisor` should get delegation + approval tools.
 
 `researcher` and `builder` should get requester tools only.
 
@@ -62,6 +62,72 @@ Recommended per-agent allow additions:
   - `builder_request_handoff`
   - `builder_get_handoff_status`
 
+Recommended supervisor-first core tool shape:
+
+- `main` / supervisor:
+  - stronger default model than specialists
+  - `tools.profile: "minimal"`
+  - allow:
+    - `message`
+    - `session_status`
+    - `sessions_list`
+    - `sessions_history`
+    - `agents_list`
+    - `read`
+    - `memory_search`
+    - `memory_get`
+    - `memory_expand`
+    - `group:web`
+    - all `supervisor_*` control-plane tools above
+  - deny:
+    - `sessions_send`
+    - `sessions_spawn`
+    - `sessions_yield`
+    - `subagents`
+    - `exec`
+    - `process`
+    - `write`
+    - `edit`
+    - `apply_patch`
+    - `gateway`
+    - `cron`
+    - `browser`
+    - `canvas`
+- `researcher`:
+  - cheap specialist model
+  - `tools.profile: "minimal"`
+  - allow:
+    - `message`
+    - `session_status`
+    - `sessions_list`
+    - `sessions_history`
+    - `read`
+    - `memory_search`
+    - `memory_get`
+    - `memory_expand`
+    - `group:web`
+    - `researcher_*` control-plane tools above
+  - deny the same direct peer-delegation and mutation tools as supervisor
+- `builder`:
+  - cheap specialist model
+  - `tools.profile: "coding"`
+  - keep code/runtime tools
+  - explicitly deny:
+    - `sessions_send`
+    - `sessions_spawn`
+    - `sessions_yield`
+    - `subagents`
+    - `browser`
+    - `canvas`
+    - `cron`
+
+Important note:
+
+- OpenClaw does not currently expose a dedicated dry-run-only runtime tool for supervisor.
+- If supervisor needs host-level verification beyond read/search/inspection, prefer a bounded builder handoff instead of widening supervisor into direct shell or config mutation.
+- If the user has already asked the supervisor to execute specialist work, prefer `supervisor_request_handoff` directly instead of asking an extra yes/no question first.
+- `supervisor_request_handoff` should create a visible `pending_approval` pause, not silently auto-approve.
+
 ## 3. Explicitly deny direct peer delegation
 
 Keep these tools disabled or removed from all three production agents:
@@ -80,3 +146,7 @@ Keep these tools disabled or removed from all three production agents:
   - group enabled
   - `@mention` required
   - only the approved user may trigger group processing
+
+## 5. Pair with prompt guidance
+
+Use `ops/supervisor-first-orchestration-prompt.md` as the supervisor prompt pack snippet so the stronger supervisor directly uses `supervisor_request_handoff` when specialist work is needed, without adding an extra verbal confirmation round.

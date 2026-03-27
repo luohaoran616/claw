@@ -134,6 +134,11 @@ Recommended role intent:
 - `builder`:
   - code, shell, repair, packaging
 
+Supervisor-first prompt note:
+
+- seed the `main` agent's `SOUL.md` or `AGENTS.md` with the snippet from `ops/supervisor-first-orchestration-prompt.md`
+- keep `researcher` and `builder` prompt packs specialist-specific and cheaper to run
+
 Practical note for the current Raspberry Pi host:
 
 - if Docker is not installed, do not enable per-agent Docker sandboxing in v1
@@ -180,23 +185,32 @@ Use this as the configuration target and adapt it to the live file instead of bl
         default: true,
         workspace: "/home/luo/.openclaw/workspace",
         agentDir: "/home/luo/.openclaw/agents/main/agent",
-        model: "github-copilot/gpt-5.4-mini",
+        model: "github-copilot/gpt-5.3-codex",
         tools: {
-          profile: "messaging",
+          profile: "minimal",
           allow: [
+            "message",
+            "session_status",
             "sessions_list",
             "sessions_history",
+            "agents_list",
             "memory_search",
             "memory_get",
             "memory_expand",
-            "read"
+            "read",
+            "group:web"
           ],
           deny: [
+            "sessions_send",
+            "sessions_spawn",
+            "sessions_yield",
+            "subagents",
             "exec",
             "process",
             "write",
             "edit",
             "apply_patch",
+            "gateway",
             "browser",
             "canvas",
             "cron"
@@ -212,8 +226,10 @@ Use this as the configuration target and adapt it to the live file instead of bl
         },
         model: "github-copilot/gpt-5.4-mini",
         tools: {
-          profile: "messaging",
+          profile: "minimal",
           allow: [
+            "message",
+            "session_status",
             "group:web",
             "read",
             "sessions_list",
@@ -223,11 +239,16 @@ Use this as the configuration target and adapt it to the live file instead of bl
             "memory_expand"
           ],
           deny: [
+            "sessions_send",
+            "sessions_spawn",
+            "sessions_yield",
+            "subagents",
             "exec",
             "process",
             "write",
             "edit",
             "apply_patch",
+            "gateway",
             "browser",
             "canvas",
             "cron"
@@ -245,6 +266,10 @@ Use this as the configuration target and adapt it to the live file instead of bl
         tools: {
           profile: "coding",
           deny: [
+            "sessions_send",
+            "sessions_spawn",
+            "sessions_yield",
+            "subagents",
             "browser",
             "canvas",
             "cron"
@@ -307,6 +332,16 @@ Use this as the configuration target and adapt it to the live file instead of bl
   }
 }
 ```
+
+Model note:
+
+- this v1 implements the adaptive-supervisor idea as a stronger default model for `main` plus cheaper defaults for `researcher` and `builder`
+- OpenClaw config does not currently give you policy-based automatic model escalation inside one agent, so treat this as the practical first step
+
+Supervisor verification note:
+
+- the safe v1 supervisor surface is intentionally read-heavy and mutation-light
+- if host-level verification would require shell, restart, or config mutation, prefer a bounded `builder` handoff instead of widening supervisor into a full executor
 
 References:
 

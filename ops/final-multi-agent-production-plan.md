@@ -155,6 +155,7 @@ Suggested starting shape:
   - messaging
   - approval tools
   - read-only search and summarization tools
+  - read-only verification tools for session/config/evidence inspection
   - no direct filesystem write outside coordination artifacts
 - `researcher`
   - web/search/read tools
@@ -315,6 +316,11 @@ Minimum audit event types:
 - do not give `supervisor` builder-grade write privileges
 - do not couple approval state only to chat transcripts
 - do not start with too many specialists
+
+Practical interpretation:
+
+- make `supervisor` stronger at synthesis and bounded verification
+- keep persistent mutation, implementation, and heavy execution with specialists
 
 ## Practical Decision
 

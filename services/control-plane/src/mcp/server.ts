@@ -9,20 +9,63 @@ function toStructuredContent(value: unknown): Record<string, unknown> {
   return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
 }
 
+function buildRequestHandoffBudgetSchema() {
+  return z.object({
+    max_runtime_sec: z
+      .number()
+      .int()
+      .positive()
+      .describe("Maximum runtime in seconds for the specialist task."),
+    max_cost_usd: z
+      .number()
+      .positive()
+      .describe("Maximum model/tool cost budget in USD for the specialist task.")
+  });
+}
+
 const requestHandoffSchema = z.object({
-  target_agent: z.enum(["researcher", "builder"]),
-  summary: z.string().min(1),
-  reason: z.string().min(1),
-  expected_tools: z.array(z.string()).default([]),
-  write_scope: z.array(z.string()).default([]),
-  budget: z.object({
-    max_runtime_sec: z.number().int().positive(),
-    max_cost_usd: z.number().positive()
-  }),
-  rollback_hint: z.string().min(1),
-  source_platform: z.string().optional(),
-  chat_id: z.string().optional(),
-  thread_id: z.string().optional()
+  target_agent: z
+    .enum(["researcher", "builder"])
+    .describe(
+      "Use researcher for read-only evidence gathering and source comparison. Use builder for implementation, file changes, real tests, or environment work."
+    ),
+  summary: z
+    .string()
+    .min(1)
+    .describe("One or two sentences describing the delegated task. Keep it concise and actionable."),
+  reason: z
+    .string()
+    .min(1)
+    .describe("Why delegation is needed now. Mention tool boundary, specialist fit, cost, or task scope."),
+  expected_tools: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "Optional expected tool families or tool ids, such as web_search/read for researcher or read/edit/apply_patch/exec for builder."
+    ),
+  write_scope: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "Exact files or directories the specialist may modify. Required for builder handoffs. Leave empty for researcher."
+    ),
+  budget: buildRequestHandoffBudgetSchema().describe("Execution budget cap for the delegated task."),
+  rollback_hint: z
+    .string()
+    .min(1)
+    .describe("Short rollback or fallback note in case the delegated task fails or must be reversed."),
+  source_platform: z
+    .string()
+    .optional()
+    .describe("Optional source platform identifier such as feishu."),
+  chat_id: z
+    .string()
+    .optional()
+    .describe("Optional source chat or conversation id for traceability."),
+  thread_id: z
+    .string()
+    .optional()
+    .describe("Optional thread id for traceability.")
 });
 
 const getStatusSchema = z.object({
@@ -38,6 +81,32 @@ const approvalSchema = z.object({
 const cancelSchema = z.object({
   handoff_id: z.string().min(1)
 });
+
+export function getRequestHandoffToolDescription(role: AgentName): string {
+  const packaging =
+    "Keep the request compact and decision-ready: summary, delegation reason, expected tool family, bounded write scope when needed, and rollback hint.";
+  if (role === "supervisor") {
+    return (
+      "Request an approval-gated handoff to another specialist agent. " +
+      "If the user has already asked you to carry out the specialist work, create the handoff directly instead of asking a redundant yes/no permission question first. " +
+      "Use this when you intentionally want a separate pending-approval checkpoint before work begins. " +
+      "Prefer this when the task needs file changes, real tests, environment mutation, long-running execution, or would be cheaper or clearer for a specialist. " +
+      "Use direct answers only for read-only synthesis, lightweight verification, or coordination work. " +
+      packaging
+    );
+  }
+  return (
+    "Request an approval-gated handoff to another specialist agent when the task exceeds your tool boundary or the other specialist is a better fit. " +
+    packaging
+  );
+}
+
+export function getHandoffStatusToolDescription(role: AgentName): string {
+  if (role === "supervisor") {
+    return "Fetch the full status of a previously created handoff request so you can track specialist work instead of resubmitting it.";
+  }
+  return "Fetch the full status of a previously created handoff request instead of guessing or re-requesting the same work.";
+}
 
 export function listToolNamesForRole(role: AgentName): string[] {
   const requesterTools = [
@@ -70,7 +139,7 @@ export function createMcpServer(role: AgentName, client: ControlPlaneHttpClient)
     requesterToolNames.request,
     {
       title: "Request Handoff",
-      description: "Request an approval-gated handoff to another specialist agent.",
+      description: getRequestHandoffToolDescription(role),
       inputSchema: requestHandoffSchema
     },
     async (input) => {
@@ -108,7 +177,7 @@ export function createMcpServer(role: AgentName, client: ControlPlaneHttpClient)
     requesterToolNames.status,
     {
       title: "Get Handoff Status",
-      description: "Fetch the full status of a previously created handoff request.",
+      description: getHandoffStatusToolDescription(role),
       inputSchema: getStatusSchema
     },
     async ({ handoff_id }) => {

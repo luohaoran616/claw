@@ -686,3 +686,140 @@ Note: this is a break-glass LAN HTTP setup. For hardened production, migrate to 
   - the Raspberry Pi working copy at `/home/luo/apps/claw` is functional but may not be git-clean, because several deployment fixes were hot-uploaded after `git pull` was blocked by an existing local modification to:
     - `services/control-plane/src/db/migrations.ts`
   - if we want a perfectly clean deploy tree later, reconcile `/home/luo/apps/claw` with `origin/main` in a dedicated cleanup pass instead of using the current hotfix-in-place state
+
+## 2026-03-27 Feishu Multi-Agent Tool-Use Root-Cause Analysis Note
+
+- New user report: chatting with the three Feishu bots feels "less smart"; agents often answer in plain text instead of calling tools.
+- Current repo + memory evidence still points first to production policy, not missing Feishu app permissions:
+  - `main` / supervisor stays on `tools.profile: "messaging"` with a small allowlist (`memory_*`, `read`, session inspection), so it does not have `exec` / `process` / `write` / `edit` / `apply_patch`.
+  - direct peer delegation remains intentionally disabled in production (`sessions_send` / `sessions_spawn` / `sessions_yield` / `subagents` denied).
+  - expected production path is `*_request_handoff` -> approval -> dispatch, not free-form direct subagent calling.
+- Live role tool separation had already been verified on Raspberry Pi:
+  - supervisor only gets approval/request/status MCP tools
+  - researcher and builder only get request/status MCP tools
+- Important nuance:
+  - `researcher` is also on a narrow messaging profile in the runbook, so if it feels conservative, that is consistent with current least-privilege design.
+  - only `builder` is configured on a `coding` profile, so coding-style tool use should mainly be expected there.
+- Secondary factor:
+  - live model baseline is still `github-copilot/gpt-5.4-mini`; prior notes already observed occasional text-only replies even when a tool was available, so model tool-use tendency may still contribute.
+- Recommended next validation is to separate policy from model behavior with 3 targeted checks:
+  1. ask supervisor for a memory lookup task and confirm `memory_*` tool calls appear;
+  2. ask supervisor for a coding/file-edit task and confirm it does not gain coding tools;
+  3. ask builder for a repo/code task and inspect session transcript/jsonl for actual tool-call names.
+
+## 2026-03-27 Supervisor-First Capability Strategy Note
+
+- User is considering a new operating model:
+  - make `supervisor` much stronger, potentially with a broad tool surface and a stronger/more expensive model;
+  - keep `researcher` / `builder` as cheaper specialist agents;
+  - still bias `supervisor` toward `request_handoff` for token/cost efficiency when specialist execution is a better fit.
+- Current recommendation is not "full unrestricted supervisor" in production.
+- Better target shape:
+  - `supervisor` becomes a stronger orchestrator with broad read/search/inspection and approval/request tools;
+  - `request_handoff` should be explicitly preferred for non-trivial coding, long-running, or write-heavy tasks;
+  - `builder` keeps bounded write/test/exec authority;
+  - `researcher` keeps read/search/evidence authority.
+- This preserves the current approval-gated control-plane boundary while improving perceived intelligence at the top layer.
+
+## 2026-03-27 Supervisor-First Orchestration Implemented In Repo
+
+- Implemented control-plane MCP guidance changes:
+  - `services/control-plane/src/mcp/server.ts`
+  - `request_handoff` tool descriptions are now role-aware, with stronger supervisor guidance toward specialist delegation
+  - handoff input schema fields now carry packaging guidance for summary/reason/expected tools/write scope/budget/rollback hint
+- Implemented specialist execution prompt tightening:
+  - `services/control-plane/src/prompt.ts`
+  - dispatch prompt now tells specialists to treat the approved handoff summary/reason as the execution contract
+- Added tests for the new handoff/status guidance:
+  - `services/control-plane/test/control-plane.test.ts`
+  - local `pnpm --filter @claw/control-plane build` passed
+  - local `pnpm --filter @claw/control-plane test` passed (`8` tests)
+- Added deployable prompt asset:
+  - `ops/supervisor-first-orchestration-prompt.md`
+  - intended for supervisor `SOUL.md` / `AGENTS.md`
+- Updated OpenClaw wiring / runbook docs to the new supervisor-first shape:
+  - `ops/openclaw-control-plane-openclaw-snippet.md`
+  - `ops/raspi-feishu-multi-agent-runbook.md`
+  - `ops/final-multi-agent-production-plan.md`
+  - `services/control-plane/README.md`
+  - `ops/README.md`
+- New recommended runtime shape in docs:
+  - `main` / supervisor uses a stronger default model than specialists
+  - supervisor moves to `tools.profile: "minimal"` plus explicit read/search/inspection allowlist
+  - supervisor explicitly denies `sessions_send` / `sessions_spawn` / `sessions_yield` / `subagents`
+  - supervisor explicitly denies mutation-capable tool families (`exec` / `process` / `write` / `edit` / `apply_patch` / `gateway` / `cron` / browser UI tools)
+  - researcher also moves to a minimal, read-heavy profile
+  - builder stays on `coding` but now explicitly denies direct peer delegation tools
+- Important implementation boundary:
+  - repo-side guidance is now ready, but Raspberry Pi live `openclaw.json` / prompt-pack files still need a deployment/sync pass before Feishu bots reflect the new behavior
+
+## 2026-03-27 Direct Handoff Without Redundant Verbal Confirmation
+
+- User clarified the desired supervisor behavior:
+  - do not auto-approve specialist work by default
+  - when delegation is needed, `supervisor` should directly create a `pending_approval` handoff instead of first asking a redundant "should I create the handoff?" question
+- Repo-side correction implemented:
+  - removed the temporary `supervisor_delegate_handoff` path from `services/control-plane/src/mcp/server.ts`
+  - kept `supervisor_request_handoff` as the single supervisor delegation primitive
+  - updated supervisor tool description so it explicitly says:
+    - if the user already asked for execution, create the handoff directly
+    - keep the approval checkpoint rather than silently auto-approving
+- Prompt / docs updated to match:
+  - `ops/supervisor-first-orchestration-prompt.md`
+  - `ops/openclaw-control-plane-openclaw-snippet.md`
+  - `services/control-plane/README.md`
+  - `ops/control-plane-api-draft.md`
+- Approval-entrypoint clarification remains:
+  - a handoff created through `supervisor_request_handoff` stays in `pending_approval` until approved
+  - current approval surfaces are:
+    - same supervisor chat via `supervisor_list_pending_approvals` + `supervisor_approve_handoff`
+    - raw control-plane HTTP API (`POST /api/handoffs/:id/approve`)
+  - there is still no separate push-style Feishu approval reminder/card implementation in this repo yet
+- Feishu capability check:
+  - local OpenClaw Feishu docs and source confirm:
+    - Feishu supports interactive cards and card-action callbacks
+    - Feishu streaming replies are supported through interactive cards when `channels.feishu.streaming: true` and `channels.feishu.blockStreaming: true`
+  - therefore a future "pending approval card in Feishu with Approve/Reject buttons" design is feasible, but not yet wired into the control-plane service
+- Validation:
+  - `pnpm --filter @claw/control-plane build` passed
+  - `pnpm --filter @claw/control-plane test` passed (`8` tests)
+- Live-boundary note:
+  - the prompt / control-plane behavior correction is implemented in repo only for now
+  - Raspberry Pi / live Feishu runtime still needs deploy + prompt-pack sync before production behavior changes
+
+## 2026-03-27 Raspberry Pi Deploy: Direct Pending-Approval Handoff Prompting
+
+- Deployed current control-plane behavior correction to Raspberry Pi `192.168.0.142` via password SSH (`luo/luo`) using Paramiko.
+- Remote backup created before overwrite:
+  - `/home/luo/.openclaw/backups/control-plane-deploy-20260327-205854`
+- Synced to `/home/luo/apps/claw`:
+  - `services/control-plane/src/mcp/server.ts`
+  - `services/control-plane/src/prompt.ts`
+  - `services/control-plane/README.md`
+  - `ops/supervisor-first-orchestration-prompt.md`
+  - `ops/openclaw-control-plane-openclaw-snippet.md`
+  - `ops/control-plane-api-draft.md`
+- Patched live supervisor workspace prompt file:
+  - `/home/luo/.openclaw/workspace/AGENTS.md`
+  - added `## Supervisor Delegation`
+  - rule now says:
+    - use `supervisor_request_handoff` when specialist work is needed
+    - if user already asked for execution, create the pending-approval handoff directly
+    - do not ask an extra yes/no delegation question first
+- Remote rebuild / restart results:
+  - `pnpm --filter @claw/control-plane build` passed on Raspberry Pi
+  - `systemctl --user restart openclaw-control-plane` succeeded
+  - `curl http://127.0.0.1:18890/healthz` => `{"ok":true}`
+  - `systemctl --user restart openclaw-gateway` succeeded
+  - `node /home/luo/apps/openclaw/openclaw.mjs gateway status --deep` => RPC probe ok
+  - `node /home/luo/apps/openclaw/openclaw.mjs channels status --probe` => all 3 Feishu accounts `works`
+- Runtime verification:
+  - rebuilt dist contains the new supervisor wording about not asking a redundant yes/no delegation question
+  - rebuilt dist no longer contains `supervisor_delegate_handoff`
+- Streaming status on Raspberry Pi:
+  - `/home/luo/.openclaw/openclaw.json` already has:
+    - `channels.feishu.streaming = true`
+    - `channels.feishu.blockStreaming = true`
+- Important user-facing note:
+  - existing active Feishu sessions may still carry old conversational context
+  - if supervisor still behaves like before in the same chat, use `/new` or start a fresh conversation to force the new prompt framing to dominate

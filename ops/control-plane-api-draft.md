@@ -118,6 +118,12 @@ Used by:
 - control UI
 - audit operators
 
+Current practical approval entrypoints:
+
+- same supervisor chat through supervisor approval tools
+- control UI if one is deployed
+- raw API clients for operator/debug flows
+
 ### 3. Approve Handoff
 
 `POST /api/handoffs/{id}/approve`
@@ -235,6 +241,11 @@ Supervisor-only tools:
 - `approve_handoff`
 - `reject_handoff`
 - `cancel_handoff`
+
+Recommended usage:
+
+- `request_handoff` for specialist delegation
+- if the user already asked for execution, create the pending-approval handoff directly instead of asking an extra verbal confirmation question first
 
 ## Event Types
 
