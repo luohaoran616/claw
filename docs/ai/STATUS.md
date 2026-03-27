@@ -823,3 +823,42 @@ Note: this is a break-glass LAN HTTP setup. For hardened production, migrate to 
 - Important user-facing note:
   - existing active Feishu sessions may still carry old conversational context
   - if supervisor still behaves like before in the same chat, use `/new` or start a fresh conversation to force the new prompt framing to dominate
+
+## 2026-03-27 Repo Commit + Raspberry Pi Git Tree Realigned
+
+- Local repo changes from this turn were committed on `main` and pushed to GitHub:
+  - commit: `c7b86f5`
+  - message: `Refine supervisor approval handoff flow`
+- Local verification before commit:
+  - `pnpm --filter @claw/control-plane build` passed
+  - `pnpm --filter @claw/control-plane test` passed (`8` tests)
+- Local repo status after push:
+  - `git status --short` => clean
+- User requested the Raspberry Pi deployment tree stop being a hotfixed dirty working copy and return to a sustainable git-pull baseline.
+- Raspberry Pi repo `/home/luo/apps/claw` was cleaned and realigned as follows:
+  - backup created first:
+    - `/home/luo/.openclaw/backups/claw-repo-align-20260327-223954`
+  - backup contents include:
+    - `git status --short`
+    - `git diff`
+    - `git diff --cached`
+    - copies of modified/untracked repo files
+  - then executed:
+    - `git fetch origin --prune`
+    - `git reset --hard origin/main`
+    - `git clean -fd`
+- Result on Raspberry Pi:
+  - `/home/luo/apps/claw` now points at `c7b86f5`
+  - `git status --short` => clean
+  - no remaining hotfix drift in the repo working tree
+- Post-alignment verification on Raspberry Pi:
+  - rebuilt from the clean repo:
+    - `pnpm --filter @claw/control-plane build`
+  - restarted service:
+    - `systemctl --user restart openclaw-control-plane`
+  - health:
+    - `curl http://127.0.0.1:18890/healthz` => `{"ok":true}`
+  - gateway still healthy:
+    - `node /home/luo/apps/openclaw/openclaw.mjs gateway status --deep` => RPC probe ok
+- Operational conclusion:
+  - subsequent development can treat the Raspberry Pi checkout as the new clean deployment baseline instead of an ad-hoc patched tree
